@@ -1,12 +1,345 @@
-<!doctype html>
-<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>webdisc</title><link rel="stylesheet" href="style.css"></head>
-<body><div id="login" class="login"><div class="login-card"><div class="logo big">w</div><h1>webdisc'e hoş geldin</h1><p>Topluluğuna katıl, sohbet et ve sesli odalara gir.</p><input id="username" maxlength="24" placeholder="Kullanıcı adın"><button id="enter">Giriş yap</button><small>Demo hesap: e-posta veya şifre gerekmez.</small></div></div>
-<div id="app" class="app hidden"><aside class="guilds"><div class="guild active" title="Ana sayfa">w</div><div class="guild add" id="addServer" title="Sunucu oluştur">+</div></aside>
-<aside class="channels"><div class="brand">webdisc <span>⌄</span></div><div class="server-name" id="serverName">Webdisc Topluluğu</div><div class="section">METİN KANALLARI <button id="addChannel">+</button></div><div id="channelList"></div><div class="section">SES KANALLARI</div><div id="voiceList"></div><div class="userbox"><div class="avatar" id="myAvatar">W</div><div><b id="myName">Üye</b><small>Çevrimiçi</small></div><button id="settings">⚙</button></div></aside>
-<main class="chat"><header><div><b id="channelTitle"># genel</b><small id="topic">Topluluğunla sohbet et</small></div><div class="head-actions"><button id="friendsBtn">♙ Arkadaşlar</button><button id="nitroBtn" class="nitro">✦ Nitro</button></div></header>
-<div id="messages" class="messages"><div class="welcome"><div class="welcome-icon">✦</div><h2>webdisc'e hoş geldin!</h2><p>Bu kanalın başlangıcı. İlk mesajı sen gönder.</p></div></div>
-<form id="sendForm" class="composer"><button type="button" class="plus">＋</button><input id="messageInput" autocomplete="off" placeholder="# genel kanalına mesaj gönder"><button class="send">➤</button></form></main>
-<aside class="members"><div class="members-title">ÇEVRİMİÇİ ÜYELER — <span id="memberCount">0</span></div><div id="memberList"></div></aside></div>
-<div id="modal" class="modal hidden"><div class="modal-card"><button class="close" id="closeModal">×</button><div id="modalContent"></div></div></div>
-<div id="voiceBar" class="voicebar hidden"><span>🎙 Ses odasına bağlısın</span><button id="muteBtn">Mikrofonu kapat</button><button id="leaveVoice">Bağlantıyı kes</button></div>
-<script src="/socket.io/socket.io.js"></script><script src="app.js"></script></body></html>
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>webdiscr</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            background-color: #313338;
+            color: #dbdee1;
+            font-family: 'gg sans', 'Noto Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Giriş Ekranı */
+        #login-screen {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #1e1f22;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .login-box {
+            background: #2b2d31;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            text-align: center;
+            width: 320px;
+        }
+        .login-box h2 { margin-top: 0; color: #f2f3f5; }
+        .login-box input {
+            width: 100%;
+            padding: 10px;
+            margin: 15px 0;
+            background: #1e1f22;
+            border: 1px solid #3f4147;
+            color: white;
+            border-radius: 4px;
+            outline: none;
+        }
+        .login-box button {
+            width: 100%;
+            padding: 10px;
+            background: #5865f2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .login-box button:hover { background: #4752c4; }
+
+        /* Sol Menü - Online Listesi */
+        .sidebar {
+            width: 240px;
+            background-color: #2b2d31;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #1f2023;
+        }
+        .sidebar-header {
+            padding: 15px;
+            font-weight: bold;
+            color: #f2f3f5;
+            border-bottom: 1px solid #1f2023;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+        .user-list {
+            list-style: none;
+            padding: 10px;
+            margin: 0;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .user-item {
+            padding: 8px 10px;
+            margin-bottom: 4px;
+            background: #35373c;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+        }
+        .add-btn {
+            background-color: #248046;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .add-btn:hover { background-color: #1a6334; }
+
+        /* Ana İçerik ve Chat */
+        .main-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: #313338;
+        }
+        .top-bar {
+            height: 48px;
+            border-bottom: 1px solid #1f2023;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            background: #313338;
+            font-weight: bold;
+        }
+        .content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        /* Arkadaş Ekle Paneli */
+        .friend-add-box {
+            background: #2b2d31;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+        }
+        .friend-add-box input {
+            flex: 1;
+            padding: 10px;
+            background: #1e1f22;
+            border: none;
+            color: white;
+            border-radius: 4px;
+            outline: none;
+        }
+        .friend-add-box button {
+            padding: 10px 20px;
+            background: #5865f2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        /* Bildirim Kutusu */
+        #notification-box {
+            background: #2b2d31;
+            border-left: 4px solid #5865f2;
+            padding: 10px 15px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        /* Chat Mesaj Alanı */
+        .chat-messages {
+            flex: 1;
+            background: #2b2d31;
+            border-radius: 8px;
+            padding: 15px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .message-item {
+            display: flex;
+            flex-direction: column;
+        }
+        .message-header {
+            font-size: 12px;
+            color: #949ba4;
+            margin-bottom: 2px;
+        }
+        .message-header strong {
+            color: #f2f3f5;
+            font-size: 14px;
+            margin-right: 8px;
+        }
+        .message-text {
+            color: #dbdee1;
+            font-size: 15px;
+        }
+
+        /* Mesaj Yazma Kutusu */
+        .chat-input-box {
+            display: flex;
+            gap: 10px;
+        }
+        .chat-input-box input {
+            flex: 1;
+            padding: 12px;
+            background: #383a40;
+            border: none;
+            color: white;
+            border-radius: 8px;
+            outline: none;
+        }
+        .chat-input-box button {
+            padding: 12px 20px;
+            background: #5865f2;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Giriş Ekranı -->
+    <div id="login-screen">
+        <div class="login-box">
+            <h2>webdiscr</h2>
+            <p style="color: #949ba4; font-size: 14px;">Kullanıcı adını girerek katıl</p>
+            <input type="text" id="username-input" placeholder="Kullanıcı adı...">
+            <button onclick="login()">Sohbete Katıl</button>
+        </div>
+    </div>
+
+    <!-- Sol Sidebar (Aktif Üyeler) -->
+    <div class="sidebar">
+        <div class="sidebar-header">🌐 Çevrimiçi Üyeler</div>
+        <ul class="user-list" id="user-list"></ul>
+    </div>
+
+    <!-- Ana Ekran (Arkadaş Ekleme + Canlı Chat) -->
+    <div class="main-container">
+        <div class="top-bar"># genel-sohbet</div>
+        <div class="content-area">
+            
+            <!-- Bildirim Alanı -->
+            <div id="notification-box">Sistem: Hoş geldiniz! Gerçek kullanıcılar burada görünecektir.</div>
+
+            <!-- Arkadaş Ekleme Formu -->
+            <div class="friend-add-box">
+                <input type="text" id="friend-input" placeholder="Arkadaş eklemek için kullanıcı adı girin...">
+                <button onclick="sendFriendRequest()">Arkadaş Ekle</button>
+            </div>
+
+            <!-- Mesaj Akışı -->
+            <div class="chat-messages" id="chat-messages"></div>
+
+            <!-- Mesaj Gönderme Kutusu -->
+            <div class="chat-input-box">
+                <input type="text" id="message-input" placeholder="Mesajınızı yazın..." onkeypress="handleKeyPress(event)">
+                <button onclick="sendMessage()">Gönder</button>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let myUsername = "";
+
+        function login() {
+            const input = document.getElementById('username-input').value.trim();
+            if (!input) return alert("Lütfen geçerli bir kullanıcı adı girin!");
+            myUsername = input;
+            socket.emit('set_username', myUsername);
+            document.getElementById('login-screen').style.display = 'none';
+        }
+
+        function sendFriendRequest() {
+            const target = document.getElementById('friend-input').value.trim();
+            if (!target) return;
+            socket.emit('send_friend_request', target);
+            document.getElementById('friend-input').value = "";
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('message-input');
+            const text = input.value.trim();
+            if (text !== "") {
+                socket.emit('send_message', { text: text });
+                input.value = "";
+            }
+        }
+
+        function handleKeyPress(e) {
+            if (e.key === 'Enter') sendMessage();
+        }
+
+        function quickAdd(username) {
+            socket.emit('send_friend_request', username);
+        }
+
+        // Socket Olayları
+        socket.on('update_users', (users) => {
+            const listEl = document.getElementById('user-list');
+            listEl.innerHTML = "";
+            users.forEach(user => {
+                if (user !== myUsername) {
+                    const li = document.createElement('li');
+                    li.className = 'user-item';
+                    li.innerHTML = `<span>${user}</span> <button class="add-btn" onclick="quickAdd('${user}')">Ekle</button>`;
+                    listEl.appendChild(li);
+                } else {
+                    const li = document.createElement('li');
+                    li.className = 'user-item';
+                    li.innerHTML = `<span style="font-weight:bold; color:#23a55a;">${user} (Sen)</span>`;
+                    listEl.appendChild(li);
+                }
+            });
+        });
+
+        socket.on('friend_request_received', (data) => {
+            document.getElementById('notification-box').innerText = `🎉 ${data.from} sana arkadaşlık isteği gönderdi!`;
+        });
+
+        socket.on('notification', (msg) => {
+            document.getElementById('notification-box').innerText = `📢 ${msg}`;
+        });
+
+        socket.on('receive_message', (data) => {
+            const box = document.getElementById('chat-messages');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message-item';
+            msgDiv.innerHTML = `
+                <div class="message-header"><strong>${data.user}</strong> <span>${data.time}</span></div>
+                <div class="message-text">${data.text}</div>
+            `;
+            box.appendChild(msgDiv);
+            box.scrollTop = box.scrollHeight;
+        });
+    </script>
+</body>
+</html>
