@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>webdisc</title><link rel="stylesheet" href="style.css"></head>
+<body><div id="login" class="login"><div class="login-card"><div class="logo big">w</div><h1>webdisc'e hoş geldin</h1><p>Topluluğuna katıl, sohbet et ve sesli odalara gir.</p><input id="username" maxlength="24" placeholder="Kullanıcı adın"><button id="enter">Giriş yap</button><small>Demo hesap: e-posta veya şifre gerekmez.</small></div></div>
+<div id="app" class="app hidden"><aside class="guilds"><div class="guild active" title="Ana sayfa">w</div><div class="guild add" id="addServer" title="Sunucu oluştur">+</div></aside>
+<aside class="channels"><div class="brand">webdisc <span>⌄</span></div><div class="server-name" id="serverName">Webdisc Topluluğu</div><div class="section">METİN KANALLARI <button id="addChannel">+</button></div><div id="channelList"></div><div class="section">SES KANALLARI</div><div id="voiceList"></div><div class="userbox"><div class="avatar" id="myAvatar">W</div><div><b id="myName">Üye</b><small>Çevrimiçi</small></div><button id="settings">⚙</button></div></aside>
+<main class="chat"><header><div><b id="channelTitle"># genel</b><small id="topic">Topluluğunla sohbet et</small></div><div class="head-actions"><button id="friendsBtn">♙ Arkadaşlar</button><button id="nitroBtn" class="nitro">✦ Nitro</button></div></header>
+<div id="messages" class="messages"><div class="welcome"><div class="welcome-icon">✦</div><h2>webdisc'e hoş geldin!</h2><p>Bu kanalın başlangıcı. İlk mesajı sen gönder.</p></div></div>
+<form id="sendForm" class="composer"><button type="button" class="plus">＋</button><input id="messageInput" autocomplete="off" placeholder="# genel kanalına mesaj gönder"><button class="send">➤</button></form></main>
+<aside class="members"><div class="members-title">ÇEVRİMİÇİ ÜYELER — <span id="memberCount">0</span></div><div id="memberList"></div></aside></div>
+<div id="modal" class="modal hidden"><div class="modal-card"><button class="close" id="closeModal">×</button><div id="modalContent"></div></div></div>
+<div id="voiceBar" class="voicebar hidden"><span>🎙 Ses odasına bağlısın</span><button id="muteBtn">Mikrofonu kapat</button><button id="leaveVoice">Bağlantıyı kes</button></div>
+<script src="/socket.io/socket.io.js"></script><script src="app.js"></script></body></html>

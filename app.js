@@ -1,0 +1,39 @@
+const socket=io();
+const $=id=>document.getElementById(id);
+let me="",activeChannel="genel",servers=[],currentServer=null,voiceRoom=null,localStream=null,muted=false;
+const peers=new Map();
+function showModal(html){$("modalContent").innerHTML=html;$("modal").classList.remove("hidden")}
+function closeModal(){$("modal").classList.add("hidden")}
+$("closeModal").onclick=closeModal;
+$("enter").onclick=()=>{const n=$("username").value.trim();if(!n)return alert("Bir kullanıcı adı yaz.");me=n;$("login").classList.add("hidden");$("app").classList.remove("hidden");$("myName").textContent=me;$("myAvatar").textContent=me[0].toUpperCase();socket.emit("join-app",me)};
+$("username").addEventListener("keydown",e=>{if(e.key==="Enter")$("enter").click()});
+socket.on("init",data=>{servers=data.servers;renderServers();renderUsers(data.users);selectChannel("genel","genel")});
+socket.on("servers",s=>{servers=s;renderServers()});
+socket.on("users",renderUsers);
+socket.on("message",m=>{if(m.channel===activeChannel)addMessage(m)});
+socket.on("system",t=>{if(activeChannel==="genel"){const d=document.createElement("div");d.className="system";d.textContent=t;$("messages").append(d)}});
+function renderServers(){const wrap=document.querySelector(".guilds");wrap.querySelectorAll(".server-icon").forEach(e=>e.remove());servers.forEach(s=>{if(s.id==="lobby")return;const b=document.createElement("button");b.className="guild server-icon";b.textContent=s.icon;b.title=s.name;b.onclick=()=>{currentServer=s;renderChannels();$("serverName").textContent=s.name};wrap.insertBefore(b,$("addServer"))})}
+function renderChannels(){const s=currentServer||servers[0];$("serverName").textContent=s.name;$("channelList").innerHTML="";$("voiceList").innerHTML="";s.channels.forEach(c=>{const el=document.createElement("div");el.className="channel"+(c.type==="voice"?" voice":"");el.textContent=(c.type==="voice"?"🔊 ":"# ")+c.name;el.onclick=()=>c.type==="voice"?joinVoice(c.id):selectChannel(c.id,c.name);(c.type==="voice"?$("voiceList"):$("channelList")).append(el)})}
+function selectChannel(id,name){activeChannel=id;socket.emit("join-channel",id);$("channelTitle").textContent="# "+name;$("messages").innerHTML="";$("messages").innerHTML='<div class="welcome"><div class="welcome-icon">✦</div><h2># '+escapeHtml(name)+'</h2><p>Bu kanalın başlangıcı. İlk mesajı sen gönder.</p></div>';$("messageInput").placeholder="# "+name+" kanalına mesaj gönder";document.querySelectorAll(".channel").forEach(e=>e.classList.toggle("selected",e.textContent.includes(name)))}
+function renderUsers(list){$("memberCount").textContent=list.length;$("memberList").innerHTML="";list.forEach(u=>{const d=document.createElement("div");d.className="member";d.innerHTML='<div class="avatar">'+escapeHtml(u.name[0].toUpperCase())+'</div><span>'+escapeHtml(u.name)+'</span>';d.title="Arkadaş eklemek için tıkla";d.onclick=()=>friendInvite(u.name);$("memberList").append(d)})}
+function addMessage(m){const welcome=$("messages").querySelector(".welcome");if(welcome)welcome.remove();const d=document.createElement("div");d.className="message";const time=new Date(m.time).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"});d.innerHTML='<div class="avatar">'+escapeHtml(m.name[0].toUpperCase())+'</div><div class="message-body"><div class="message-top"><b>'+escapeHtml(m.name)+'</b><time>'+time+'</time></div><p>'+escapeHtml(m.text)+'</p></div>';$("messages").append(d);$("messages").scrollTop=$("messages").scrollHeight}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+$("sendForm").onsubmit=e=>{e.preventDefault();const text=$("messageInput").value.trim();if(!text)return;socket.emit("chat-message",{text,channel:activeChannel});$("messageInput").value=""};
+$("addServer").onclick=()=>showModal('<h2>Sunucu oluştur</h2><p>Kendi topluluğunu kur.</p><input id="serverInput" placeholder="Sunucu adı"><button class="primary" id="createServer">Sunucu oluştur</button>');
+document.addEventListener("click",e=>{if(e.target.id==="createServer"){const name=$("serverInput").value.trim();if(name){socket.emit("create-server",name);closeModal()}}});
+$("addChannel").onclick=()=>showModal('<h2>Kanal oluştur</h2><input id="channelInput" placeholder="Kanal adı"><button class="primary" id="createChannel">Oluştur</button>');
+document.addEventListener("click",e=>{if(e.target.id==="createChannel"){const name=$("channelInput").value.trim();if(name&&currentServer){const id=currentServer.id+"-"+Date.now();currentServer.channels.push({id,name,type:"text"});renderChannels();closeModal()}else alert("Önce bir sunucu seç.")}});
+function friendInvite(name){showModal('<h2>Arkadaş ekle</h2><p><b>'+escapeHtml(name)+'</b> ile arkadaş olmak için kullanıcı adını paylaşabilirsin.</p><div class="modal-row">Arkadaş istekleri bu başlangıç sürümünde oturumluk değildir.</div><button class="primary" id="copyName">Kullanıcı adımı göster</button>');document.addEventListener("click",function once(e){if(e.target.id==="copyName"){e.target.textContent="Kullanıcı adın: "+me;document.removeEventListener("click",once)}})}
+$("friendsBtn").onclick=()=>showModal('<h2>Arkadaşlar</h2><p>Çevrimiçi üyelerden birine tıklayarak arkadaşlık daveti alanını açabilirsin.</p><div class="modal-row">Arkadaş listesi ve kalıcı istekler için veritabanı bağlantısı gerekir.</div>');
+$("nitroBtn").onclick=()=>showModal('<h2>✦ Webdisc Nitro</h2><p>Özel profil rozeti, animasyonlu avatarlar ve daha fazla kişiselleştirme.</p><div class="modal-row">Nitro görünümü demo amaçlıdır. Gerçek ödeme veya abonelik etkin değildir.</div>');
+$("settings").onclick=()=>showModal('<h2>Hesap ayarları</h2><p>Görünen ad: <b>'+escapeHtml(me)+'</b></p><p>Bu demo sürümünde hesaplar yerel oturumla çalışır.</p>');
+async function joinVoice(room){try{localStream=await navigator.mediaDevices.getUserMedia({audio:true});voiceRoom=room;socket.emit("voice-join",room);$("voiceBar").classList.remove("hidden");}catch(e){alert("Mikrofon izni gerekli. Siteyi HTTPS üzerinden açmalısın.")}}
+function makePeer(id){const pc=new RTCPeerConnection({iceServers:[{urls:"stun:stun.l.google.com:19302"}]});localStream?.getTracks().forEach(t=>pc.addTrack(t,localStream));pc.onicecandidate=e=>{if(e.candidate)socket.emit("rtc-ice",{to:id,candidate:e.candidate})};pc.ontrack=e=>{let a=document.getElementById("audio-"+id);if(!a){a=document.createElement("audio");a.id="audio-"+id;a.autoplay=true;document.body.append(a)}a.srcObject=e.streams[0]};peers.set(id,pc);return pc}
+socket.on("voice-users",async ids=>{for(const id of ids){const pc=makePeer(id);const offer=await pc.createOffer();await pc.setLocalDescription(offer);socket.emit("rtc-offer",{to:id,offer})}});
+socket.on("voice-peer",id=>{if(!localStream)return;const pc=makePeer(id);pc.onnegotiationneeded=async()=>{const offer=await pc.createOffer();await pc.setLocalDescription(offer);socket.emit("rtc-offer",{to:id,offer})}});
+socket.on("rtc-offer",async({from,offer})=>{if(!localStream)return;let pc=peers.get(from)||makePeer(from);await pc.setRemoteDescription(offer);const answer=await pc.createAnswer();await pc.setLocalDescription(answer);socket.emit("rtc-answer",{to:from,answer})});
+socket.on("rtc-answer",async({from,answer})=>{const pc=peers.get(from);if(pc)await pc.setRemoteDescription(answer)});
+socket.on("rtc-ice",async({from,candidate})=>{const pc=peers.get(from);if(pc)try{await pc.addIceCandidate(candidate)}catch{}});
+$("muteBtn").onclick=()=>{muted=!muted;localStream?.getAudioTracks().forEach(t=>t.enabled=!muted);$("muteBtn").textContent=muted?"Mikrofonu aç":"Mikrofonu kapat"};
+$("leaveVoice").onclick=()=>{if(voiceRoom)socket.emit("voice-leave",voiceRoom);peers.forEach(p=>p.close());peers.clear();localStream?.getTracks().forEach(t=>t.stop());localStream=null;voiceRoom=null;$("voiceBar").classList.add("hidden");document.querySelectorAll("audio[id^=audio-]").forEach(a=>a.remove())};
+renderChannels();
